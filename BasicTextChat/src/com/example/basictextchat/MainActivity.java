@@ -1,36 +1,46 @@
 /*************************************************/
 /*************************************************/
 /*************************************************/
+//server=new Socket(serverIP,4444);
+					
 package com.example.basictextchat;
 
 import java.util.Hashtable;
-import java.io.PrintWriter;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.Socket;
+import java.net.UnknownHostException;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.text.AlteredCharSequence;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
-public class MainActivity extends Activity implements OnClickListener{
-
+public class MainActivity extends Activity implements OnClickListener
+{
+	StringBuffer strb=new StringBuffer();
+	View promptView;
+	Socket server;
+	String serverIP;
 	volatile boolean wantToCloseDialog=true;
-	EditText userName;
 	EditText message;
+	TextView chatArea;
+	EditText uName,uPass;
 	volatile int flag=0;
 	Hashtable<String,String> userPassword=new Hashtable<String,String>();
 	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		
+	protected void onCreate(Bundle savedInstanceState) 
+	{
 		super.onCreate(savedInstanceState);
 		
 		userPassword.put("Lavish", "Lavi");
@@ -42,10 +52,6 @@ public class MainActivity extends Activity implements OnClickListener{
 		setContentView(R.layout.activity_main);
 
 		/***********************************************************/
-		/*
-		 * creating a Login Dialog Box
-		 */
-		//while(wantToCloseDialog)
 		createLoginDialog();
 		
 		Button b=(Button)findViewById(R.id.button1);
@@ -55,14 +61,14 @@ public class MainActivity extends Activity implements OnClickListener{
 	public void createLoginDialog()
 	{
 		LayoutInflater layoutInflater=LayoutInflater.from(this);
-		View promptView=layoutInflater.inflate(R.layout.prompt_dialog,null);
+		promptView=layoutInflater.inflate(R.layout.prompt_dialog,null);
 		
 		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
 		alertDialogBuilder.setTitle("Login");
 		alertDialogBuilder.setView(promptView);
-		final EditText uName = (EditText) promptView.findViewById(R.id.editText1);
-		final EditText uPass = (EditText) promptView.findViewById(R.id.editText2);
-		
+		uName = (EditText) promptView.findViewById(R.id.editText1);
+		uPass = (EditText) promptView.findViewById(R.id.editText2);
+		serverIP=((EditText)promptView.findViewById(R.id.editText3)).getText().toString();
 		
 		alertDialogBuilder.setCancelable(false);
 		alertDialogBuilder.setPositiveButton("Login", new DialogInterface.OnClickListener() 
@@ -91,6 +97,28 @@ public class MainActivity extends Activity implements OnClickListener{
 						Log.d("Lavish","Login Successful");
 						wantToCloseDialog=true;
 
+						serverIP=((EditText)promptView.findViewById(R.id.editText3)).getText().toString();
+						/////////////////////////////////////
+						new Thread(new Runnable()
+						{
+
+							@Override
+							public void run() {
+								// TODO Auto-generated method stub
+								try {
+									server=new Socket(serverIP,4444);
+								} catch (UnknownHostException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								} catch (IOException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+							}
+							
+						}).start();
+						
+						///////////////////////////////////
 						MainActivity.this.showToastMessage("Client Connected");
 					}
 					else
@@ -101,7 +129,6 @@ public class MainActivity extends Activity implements OnClickListener{
 					}
 					if(wantToCloseDialog)
 						alertDialog.dismiss();
-					//else dialog stays open. Make sure you have an obvious way to close the dialog especially if you set cancellable to false.
 	          }
 	      });
 	}
@@ -116,34 +143,46 @@ public class MainActivity extends Activity implements OnClickListener{
 	@Override
 	public void onClick(View v) 
 	{
-		showToastMessage("Message Sent to Server");
-		userName=(EditText)findViewById(R.id.editText1);
-		message=(EditText)findViewById(R.id.editText2);
 		
-		new Thread(new Runnable()
+		showToastMessage("Message Sent to Server");
+		message=(EditText)findViewById(R.id.editText2);
+		chatArea=(TextView)findViewById(R.id.textView1);
+		Thread t=new Thread(new Runnable()
 		{
 			public void run()
 			{
 				try
 				{
-					Socket server=new Socket("10.0.2.2",4444);
-					PrintWriter dos= new PrintWriter(server.getOutputStream(),true);
-					//userName.setText(actualUserName);
-					//userName.setEnabled(false);
-					String receivedString="[user-name] : "+userName.getText().toString()+"\t\t[message] : "+message.getText().toString();
+					String receivedString="[user-name] : "+uName.getText().toString()+"\t\t[message] : "+message.getText().toString();
 					
-					dos.write(receivedString);
-					dos.flush();
-					dos.close();
-					server.close();
-					MainActivity.this.showToastMessage("Message Successfully Sent");
+					DataOutputStream dos=new DataOutputStream(server.getOutputStream());
+					DataInputStream dis=new DataInputStream(server.getInputStream());
+					
+					dos.writeUTF(receivedString);
+					//MainActivity.this.showToastMessage("Message Successfully Sent");
+					//Log.d("Lavish",dis.readUTF());
+					//chatArea.append("\n"+dis.readUTF());
+					Log.d("Lavish","x");
+					strb.append("\n"+dis.readUTF());
+					Log.d("Lavish","y");
+					//MainActivity.this.chatArea.setText(strb);
+					Log.d("Lavish","z");
 				}
 				catch(Exception exp)
 				{
-					Log.d("Lavish",exp.getMessage());
+					Log.d("Lavish",exp.toString());
+					Log.d("Lavish","aaaaaaa : "+exp.getMessage());
 				}
-				
 			}
-		}).start();
+		});
+		t.start();
+		try {
+			t.join(0);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		MainActivity.this.chatArea.setText(strb);
+		
 	}
 }
